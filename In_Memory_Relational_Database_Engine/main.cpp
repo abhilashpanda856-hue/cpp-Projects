@@ -3,12 +3,15 @@
 #include <string>
 #include <stdexcept>
 #include <limits>
+#include <iomanip>
+#include <sstream> // to dynamically measure text lengths
 
 
 class IColumn {
 public:
     virtual ~IColumn() = default;
-    virtual void print() const = 0;
+    virtual void print(int width) const = 0; 
+    virtual int getPrintWidth() const = 0; //  to measure data length
 };
 
 template <typename T>
@@ -17,7 +20,18 @@ private:
     T data;
 public:
     explicit ColumnCell(T val) : data(val) {}
-    void print() const override { std::cout << data; }
+    
+    void print(int width) const override { 
+        std::cout << std::left << std::setw(width) << data; 
+    }
+    
+    // Calculates exactly how many characters this specific data takes up
+    int getPrintWidth() const override {
+        std::ostringstream oss;
+        oss << data;
+        return oss.str().length();
+    }
+    
     T getValue() const { return data; }
 };
 
@@ -51,14 +65,19 @@ public:
         cells[index] = new ColumnCell<T>(value);
     }
 
-    void printRow() const {
+    int getCellWidth(size_t index) const {
+        if (cells[index]) return cells[index]->getPrintWidth();
+        return 4; // Length of the word "NULL"
+    }
+
+    void printRow(const std::vector<int>& colWidths) const {
         for (size_t i = 0; i < columnCount; ++i) {
             if (cells[i]) {
-                cells[i]->print();
+                cells[i]->print(colWidths[i]);
             } else {
-                std::cout << "NULL";
+                std::cout << std::left << std::setw(colWidths[i]) << "NULL";
             }
-            std::cout << "\t| ";
+            std::cout << " | ";
         }
         std::cout << "\n";
     }
@@ -105,21 +124,40 @@ public:
     }
 
     void display() const {
+        //  Dynamically calculate the maximum width for each column
+        std::vector<int> widths(schemaNames.size());
+        for (size_t c = 0; c < schemaNames.size(); ++c) {
+            widths[c] = schemaNames[c].length(); // Start with the header length
+            for (size_t r = 0; r < rowCount; ++r) {
+                int cellWidth = rows[r]->getCellWidth(c);
+                if (cellWidth > widths[c]) {
+                    widths[c] = cellWidth; // Expand margin if the data is longer
+                }
+            }
+            widths[c] += 2; // Adds 2 spaces of padding for breathing room
+        }
+
+        //  Print Headers
         std::cout << "\n=== TABLE: " << tableName << " ===\n";
-        for (const auto& col : schemaNames) {
-            std::cout << col << "\t| ";
+        int totalWidth = 0;
+        for (size_t c = 0; c < schemaNames.size(); ++c) {
+            std::cout << std::left << std::setw(widths[c]) << schemaNames[c] << " | ";
+            totalWidth += widths[c] + 3; // +3 accounts for the " | " divider
         }
-        std::cout << "\n--------------------------------------------------------\n";
+        
+        //  Print dividing line exactly matching total table width
+        std::cout << "\n" << std::string(totalWidth, '-') << "\n";
+        
+        //  Print Rows using dynamic margins
         for (size_t i = 0; i < rowCount; ++i) {
-            rows[i]->printRow();
+            rows[i]->printRow(widths);
         }
-        std::cout << "--------------------------------------------------------\n";
+        std::cout << std::string(totalWidth, '-') << "\n";
     }
 };
 
 
 int main() {
-    // Define the updated Student Schema
     std::vector<std::string> studentColumns = {"Reg Number", "Username", "CGPA"};
     Table studentsTable("Students", studentColumns);
 
@@ -127,35 +165,45 @@ int main() {
     
     char choice = 'y';
     while (choice == 'y' || choice == 'Y') {
-        long long regNumber; // 64-bit int to prevent overflow with 10-digit numbers
+        long long regNumber = 0; 
         std::string username;
         double cgpa;
 
-        // 2. Take user input for each column
         std::cout << "\n--- Enter New Student Record ---\n";
         
-        std::cout << "Enter Registration Number (e.g., 2502081032): ";
-        std::cin >> regNumber;
+        // STRICT 10-DIGIT VALIDATION LOOP
+        while (true) {
+            std::cout << "Enter Registration Number (exactly 10 digits): ";
+            std::cin >> regNumber;
 
-        std::cout << "Enter Username (no spaces): ";
-        std::cin >> username;
+            // Check if input failed OR if the length of the number is not exactly 10
+            if (std::cin.fail() || std::to_string(regNumber).length() != 10) {
+                std::cin.clear(); // Clear the error flag
+                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Dump bad input
+                std::cout << "Error: Invalid input! Registration number MUST be exactly 10 digits.\n\n";
+            } else {
+                break; // Input is valid, break out of loop
+            }
+        }
+
+        std::cout << "Enter Username (spaces allowed): ";
+        std::getline(std::cin >> std::ws, username);
 
         std::cout << "Enter CGPA (decimal): ";
         std::cin >> cgpa;
 
         Row* newRow = studentsTable.createRow();
-        newRow->setCell<long long>(0, regNumber);  // Safely stores the massive 10-digit number
-        newRow->setCell<std::string>(1, username); // Stores standard string
-        newRow->setCell<double>(2, cgpa);          // Stores standard double
+        newRow->setCell<long long>(0, regNumber);  
+        newRow->setCell<std::string>(1, username); 
+        newRow->setCell<double>(2, cgpa);          
 
         std::cout << "Record added successfully!\n";
 
-        // Ask if they want to loop again
         std::cout << "Do you want to add another student? (y/n): ";
         std::cin >> choice;
     }
 
-    std::cout << "\nFetching all records...";
+    std::cout << "\nFetching all records...\n";
     studentsTable.display();
 
     return 0;
