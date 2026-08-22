@@ -12,7 +12,7 @@
 class IColumn {
 public:
     virtual ~IColumn() = default;
-    virtual void print(int width) const = 0; 
+    virtual void print(int width) const = 0 ; 
     virtual int getPrintWidth() const = 0; 
 };
 
