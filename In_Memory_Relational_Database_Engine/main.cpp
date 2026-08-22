@@ -4,14 +4,16 @@
 #include <stdexcept>
 #include <limits>
 #include <iomanip>
-#include <sstream> // to dynamically measure text lengths
+#include <sstream>
 
+
+//  TEMPLATES FOR GENERIC DATA COLUMNS
 
 class IColumn {
 public:
     virtual ~IColumn() = default;
     virtual void print(int width) const = 0; 
-    virtual int getPrintWidth() const = 0; //  to measure data length
+    virtual int getPrintWidth() const = 0; 
 };
 
 template <typename T>
@@ -25,7 +27,6 @@ public:
         std::cout << std::left << std::setw(width) << data; 
     }
     
-    // Calculates exactly how many characters this specific data takes up
     int getPrintWidth() const override {
         std::ostringstream oss;
         oss << data;
@@ -35,6 +36,8 @@ public:
     T getValue() const { return data; }
 };
 
+
+//  DYNAMIC MEMORY ALLOCATION FOR ROWS
 
 class Row {
 private:
@@ -67,7 +70,7 @@ public:
 
     int getCellWidth(size_t index) const {
         if (cells[index]) return cells[index]->getPrintWidth();
-        return 4; // Length of the word "NULL"
+        return 4; 
     }
 
     void printRow(const std::vector<int>& colWidths) const {
@@ -83,6 +86,8 @@ public:
     }
 };
 
+
+//  TABLE SCHEMA & LIFECYCLE MANAGEMENT
 
 class Table {
 private:
@@ -123,39 +128,47 @@ public:
         return newRow;
     }
 
+    
     void display() const {
-        //  Dynamically calculate the maximum width for each column
+        //  Dynamically calculate the max width AND total table width first
         std::vector<int> widths(schemaNames.size());
+        int totalWidth = 0; 
+        
         for (size_t c = 0; c < schemaNames.size(); ++c) {
-            widths[c] = schemaNames[c].length(); // Start with the header length
+            widths[c] = schemaNames[c].length(); 
             for (size_t r = 0; r < rowCount; ++r) {
                 int cellWidth = rows[r]->getCellWidth(c);
                 if (cellWidth > widths[c]) {
-                    widths[c] = cellWidth; // Expand margin if the data is longer
+                    widths[c] = cellWidth; 
                 }
             }
-            widths[c] += 2; // Adds 2 spaces of padding for breathing room
+            widths[c] += 2; // Padding
+            totalWidth += widths[c] + 3; // Accounts for the " | " divider
         }
 
-        //  Print Headers
+        //  Print Table Name and TOP Line
         std::cout << "\n=== TABLE: " << tableName << " ===\n";
-        int totalWidth = 0;
+        std::cout << std::string(totalWidth, '-') << "\n";
+        
+        //  Print Headers
         for (size_t c = 0; c < schemaNames.size(); ++c) {
             std::cout << std::left << std::setw(widths[c]) << schemaNames[c] << " | ";
-            totalWidth += widths[c] + 3; // +3 accounts for the " | " divider
         }
         
-        //  Print dividing line exactly matching total table width
+        //  Print MIDDLE Line
         std::cout << "\n" << std::string(totalWidth, '-') << "\n";
         
-        //  Print Rows using dynamic margins
+        //  Print Rows
         for (size_t i = 0; i < rowCount; ++i) {
             rows[i]->printRow(widths);
         }
+        
+        // 6. Print BOTTOM Line
         std::cout << std::string(totalWidth, '-') << "\n";
     }
 };
 
+//  MAIN APPLICATION (INTERACTIVE INPUTS)
 
 int main() {
     std::vector<std::string> studentColumns = {"Reg Number", "Username", "CGPA"};
@@ -171,18 +184,16 @@ int main() {
 
         std::cout << "\n--- Enter New Student Record ---\n";
         
-        // STRICT 10-DIGIT VALIDATION LOOP
         while (true) {
             std::cout << "Enter Registration Number (exactly 10 digits): ";
             std::cin >> regNumber;
 
-            // Check if input failed OR if the length of the number is not exactly 10
             if (std::cin.fail() || std::to_string(regNumber).length() != 10) {
-                std::cin.clear(); // Clear the error flag
-                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); // Dump bad input
+                std::cin.clear(); 
+                std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); 
                 std::cout << "Error: Invalid input! Registration number MUST be exactly 10 digits.\n\n";
             } else {
-                break; // Input is valid, break out of loop
+                break; 
             }
         }
 
