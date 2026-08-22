@@ -31,4 +31,4 @@ To make the engine production-ready and prevent memory leaks, I completely refac
 2. Clone this repository to your local machine.
 3. Open your terminal in the `ML_Tokenizer_Engine` folder and compile the code:
    ```bash
-   g++ main.cpp -o tokenizer.exe
+   g++ main.cpp -o tokenizer.exe  
