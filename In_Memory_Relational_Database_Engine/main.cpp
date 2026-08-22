@@ -13,13 +13,13 @@ class IColumn {
 public:
     virtual ~IColumn() = default;
     virtual void print(int width) const = 0 ; 
-    virtual int getPrintWidth() const = 0; 
+    virtual int getPrintWidth() const = 0 ; 
 };
 
 template <typename T>
 class ColumnCell : public IColumn {
 private:
-    T data;
+    T data ;
 public:
     explicit ColumnCell(T val) : data(val) {}
     
